@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5G O-RAN xApp Dashboard</title>
+    <!-- Add Chart.js and Luxon Adapter for time handling -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .chart-container {
+            width: 45%;
+            display: inline-block;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #333;
+        }
+        tr:nth-child(even) {
+            background-color: #222;
+        }
+        a {
+            color: #03A9F4;
+        }
+    </style>
+</head>
+<body>
+    <h1>5G O-RAN xApp Dashboard</h1>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Interface</th>
+                <th>Throughput (Mbps)</th>
+                <th>Latency (ms)</th>
+                <th>3GPP Spec Reference</th>
+            </tr>
+        </thead>
+        <tbody id="interfaceTableBody">
+        </tbody>
+    </table>
+
+    <!-- Chart Containers for Each Interface -->
+    <div class="chart-container">
+        <h3>E1 Throughput</h3>
+        <canvas id="chartE1" width="400" height="200"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>F1 Throughput</h3>
+        <canvas id="chartF1" width="400" height="200"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>Xn Throughput</h3>
+        <canvas id="chartXn" width="400" height="200"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>NG-C Throughput</h3>
+        <canvas id="chartNGC" width="400" height="200"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>NG-U Throughput</h3>
+        <canvas id="chartNGU" width="400" height="200"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>S1 Throughput</h3>
+        <canvas id="chartS1" width="400" height="200"></canvas>
+    </div>
+
+    <script>
+        // Initialize chart configurations
+        const chartConfig = (ctx) => ({
+            type: 'line',
+            data: {
+                labels: [],  // Timestamps
+                datasets: [{
+                    label: 'Throughput (Mbps)',
+                    backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    data: [],
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'second'
+                        },
+                        adapters: {
+                            date: {
+                                type: 'luxon'  // Using Luxon for time scale
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 1000  // Mbps
+                    }
+                }
+            }
+        });
+
+        // Get chart contexts
+        const ctxE1 = document.getElementById('chartE1').getContext('2d');
+        const ctxF1 = document.getElementById('chartF1').getContext('2d');
+        const ctxXn = document.getElementById('chartXn').getContext('2d');
+        const ctxNGC = document.getElementById('chartNGC').getContext('2d');
+        const ctxNGU = document.getElementById('chartNGU').getContext('2d');
+        const ctxS1 = document.getElementById('chartS1').getContext('2d');
+
+        // Create charts
+        const chartE1 = new Chart(ctxE1, chartConfig(ctxE1));
+        const chartF1 = new Chart(ctxF1, chartConfig(ctxF1));
+        const chartXn = new Chart(ctxXn, chartConfig(ctxXn));
+        const chartNGC = new Chart(ctxNGC, chartConfig(ctxNGC));
+        const chartNGU = new Chart(ctxNGU, chartConfig(ctxNGU));
+        const chartS1 = new Chart(ctxS1, chartConfig(ctxS1));
+
+        // Update charts and table with new data
+        function updateChartsAndTable(data) {
+            const now = new Date();
+
+            // Update charts with throughput data
+            chartE1.data.labels.push(now);
+            chartE1.data.datasets[0].data.push(data.E1.throughput);
+            chartF1.data.labels.push(now);
+            chartF1.data.datasets[0].data.push(data.F1.throughput);
+            chartXn.data.labels.push(now);
+            chartXn.data.datasets[0].data.push(data.Xn.throughput);
+            chartNGC.data.labels.push(now);
+            chartNGC.data.datasets[0].data.push(data["NG-C"].throughput);
+            chartNGU.data.labels.push(now);
+            chartNGU.data.datasets[0].data.push(data["NG-U"].throughput);
+            chartS1.data.labels.push(now);
+            chartS1.data.datasets[0].data.push(data.S1.throughput);
+
+            // Update charts
+            chartE1.update();
+            chartF1.update();
+            chartXn.update();
+            chartNGC.update();
+            chartNGU.update();
+            chartS1.update();
+
+            // Update table
+            let tableBody = document.getElementById('interfaceTableBody');
+            tableBody.innerHTML = `
+                <tr>
+                    <td>E1</td>
+                    <td>${data.E1.throughput.toFixed(2)}</td>
+                    <td>${data.E1.latency.toFixed(2)}</td>
+                    <td><a href="${data.E1.spec_ref}" target="_blank">3GPP E1 Spec</a></td>
+                </tr>
+                <tr>
+                    <td>F1</td>
+                    <td>${data.F1.throughput.toFixed(2)}</td>
+                    <td>${data.F1.latency.toFixed(2)}</td>
+                    <td><a href="${data.F1.spec_ref}" target="_blank">3GPP F1 Spec</a></td>
+                </tr>
+                <tr>
+                    <td>Xn</td>
+                    <td>${data.Xn.throughput.toFixed(2)}</td>
+                    <td>${data.Xn.latency.toFixed(2)}</td>
+                    <td><a href="${data.Xn.spec_ref}" target="_blank">3GPP Xn Spec</a></td>
+                </tr>
+                <tr>
+                    <td>NG-C</td>
+                    <td>${data["NG-C"].throughput.toFixed(2)}</td>
+                    <td>${data["NG-C"].latency.toFixed(2)}</td>
+                    <td><a href="${data["NG-C"].spec_ref}" target="_blank">3GPP NG-C Spec</a></td>
+                </tr>
+                <tr>
+                    <td>NG-U</td>
+                    <td>${data["NG-U"].throughput.toFixed(2)}</td>
+                    <td>${data["NG-U"].latency.toFixed(2)}</td>
+                    <td><a href="${data["NG-U"].spec_ref}" target="_blank">3GPP NG-U Spec</a></td>
+                </tr>
+                <tr>
+                    <td>S1</td>
+                    <td>${data.S1.throughput.toFixed(2)}</td>
+                    <td>${data.S1.latency.toFixed(2)}</td>
+                    <td><a href="${data.S1.spec_ref}" target="_blank">3GPP S1 Spec</a></td>
+                </tr>
+            `;
+        }
+
+        // Fetch data from the backend every 5 seconds
+        function fetchData() {
+            fetch('http://localhost:5000/data')
+                .then(response => response.json())
+                .then(data => updateChartsAndTable(data));
+        }
+
+        // Fetch data every 5 seconds
+        setInterval(fetchData, 5000);
+    </script>
+</body>
+</html>
